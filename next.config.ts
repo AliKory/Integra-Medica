@@ -1,8 +1,10 @@
 import type { NextConfig } from "next";
 
+/** @type {import('next').NextConfig} */
 const nextConfig: NextConfig = {
-  /* config options here */
-  reactCompiler: true,
-};
+  experimental: {
+    serverComponentsExternalPackages: ['@huggingface/inference'],
+  },
+}
 
-export default nextConfig;
+module.exports = nextConfig
