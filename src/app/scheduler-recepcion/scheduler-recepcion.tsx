@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation"
 import { useState, useEffect, useRef } from "react"
-import { format, addMonths, subMonths } from "date-fns"
+import { format, addMonths, subMonths, startOfDay } from "date-fns"
 import { es } from "date-fns/locale"
 import { CustomCalendar } from "./custom-calendar"
 import { TimeSlots } from "./time-slots"
@@ -261,7 +261,7 @@ useEffect(() => {
   // ── Booked slots — realtime ───────────────────────────────────────────────
   useEffect(() => {
     if (!selectedDay) { setBookedSlots(new Set()); return }
-    const dateStr = format(selectedDay, "yyyy-MM-dd")
+    const dateStr = format(selectedDay, "yyyy-MM-dd");
     const q = query(collection(db, "appointments"), where("date", "==", dateStr), where("status", "!=", "cancelled"))
     const unsub = onSnapshot(q, snap => setBookedSlots(new Set(snap.docs.map(d => d.data().time))))
     return () => unsub()
@@ -271,7 +271,12 @@ useEffect(() => {
   useEffect(() => {
     if (!selectedDay) { setTempBlockedSlots(new Set()); return }
     const dateStr = format(selectedDay, "yyyy-MM-dd")
-    const q = query(collection(db, "tempTimeBlocks"), where("date", "==", dateStr), where("expiresAt", ">", Timestamp.now()))
+
+    const q = query(
+  collection(db, "tempTimeBlocks"), 
+  where("date", "==", dateStr), 
+  where("expiresAt", ">", Timestamp.now()) // <-- Verifica que el reloj del servidor y cliente coincidan
+)
     const unsub = onSnapshot(q, snap => {
       const blocked = new Set<string>()
       snap.docs.forEach(d => {
@@ -306,7 +311,7 @@ useEffect(() => {
   const createTempBlock = async (time: string) => {
     if (!selectedDay) return
     try {
-      const dateStr = format(selectedDay, "yyyy-MM-dd")
+      const dateStr = format(selectedDay, "yyyy-MM-dd");
       const existing = await getDocs(query(
         collection(db, "tempTimeBlocks"),
         where("date", "==", dateStr),
@@ -338,19 +343,31 @@ useEffect(() => {
   }
 
   const getFilteredTimes = () => {
-    if (!selectedDay) return availableTimes
-    const today = new Date()
-    const isToday = selectedDay.toDateString() === today.toDateString()
-    if (!isToday) return availableTimes
-    const nowMin = today.getHours() * 60 + today.getMinutes()
-    return availableTimes.filter(t => {
-      const [time, mod] = t.split(" ")
-      let [h, m] = time.split(":").map(Number)
-      if (mod === "PM" && h !== 12) h += 12
-      if (mod === "AM" && h === 12) h = 0
-      return h * 60 + m > nowMin
-    })
-  }
+  if (!selectedDay) return availableTimes
+
+  const today = new Date()
+  const isToday =
+    selectedDay.getFullYear() === today.getFullYear() &&
+    selectedDay.getMonth() === today.getMonth() &&
+    selectedDay.getDate() === today.getDate()
+
+  // Solo filtrar horarios pasados si es hoy.
+  // NO filtrar bookedSlots ni tempBlockedSlots aqui — TimeSlots
+  // los recibe por prop y los marca visualmente como ocupados/bloqueados.
+  if (!isToday) return availableTimes
+
+  const nowMin = today.getHours() * 60 + today.getMinutes()
+
+  return availableTimes.filter(t => {
+    const [time, mod] = t.split(" ")
+    let [h, m] = time.split(":").map(Number)
+    if (mod === "PM" && h !== 12) h += 12
+    if (mod === "AM" && h === 12) h = 0
+    const slotMin = h * 60 + m
+    // Solo eliminar horas ya pasadas
+    return slotMin > nowMin
+  })
+}
 
   const isTimeSuitableForCategory = (cat: Category) => !cat.requiresLateHour || isLateHour(selectedTime)
 
@@ -793,12 +810,14 @@ const canConfirm =
                 currentMonth={currentMonth}
                 selectedDay={selectedDay}
                 onSelectDay={async (day) => {
-                  if (day.getDay() === 0) {
+                  // Reconstruir con año/mes/día locales para evitar desfase UTC
+                  const normalizedDay = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 12, 0, 0, 0)
+                  if (normalizedDay.getDay() === 0) {
                     toast.error("No atendemos los domingos", { description: "Selecciona un día entre lunes y sábado.", duration: 3000, position: "top-center" })
                     return
                   }
                   if (myTempBlockId) await removeTempBlock()
-                  setSelectedDay(day)
+                  setSelectedDay(normalizedDay)
                   setSelectedTime(null)
                   setSelectedCategory(null)
                   setSelectedService(null)

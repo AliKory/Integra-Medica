@@ -104,6 +104,7 @@ export function useAuth(): UseAuthReturn {
   }
 }, []);
 
+
   // --- FUNCIÓN DE LOGIN (SIMULADA) ---
   const loginUser = useCallback(async (data: LoginFormData) => {
     setIsLoading(true);

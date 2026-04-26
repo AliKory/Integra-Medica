@@ -62,7 +62,10 @@ export function AppointmentsManagement() {
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().split("T")[0])
+  const todayLocal = new Date()
+  const [filterDate, setFilterDate] = useState(
+    `${todayLocal.getFullYear()}-${String(todayLocal.getMonth() + 1).padStart(2, "0")}-${String(todayLocal.getDate()).padStart(2, "0")}`
+  )
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
 
@@ -247,21 +250,28 @@ useEffect(() => {
       <div className="flex flex-col md:flex-row gap-4 justify-between items-center bg-card p-4 rounded-xl border border-border/50 shadow-sm">
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => {
-            const d = new Date(filterDate); d.setDate(d.getDate() - 1)
-            setFilterDate(d.toISOString().split("T")[0])
+            const [y, m, day] = filterDate.split('-').map(Number)
+            const d = new Date(y, m - 1, day)
+            d.setDate(d.getDate() - 1)
+            setFilterDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
           }}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="min-w-[220px] text-center font-bold text-primary">
-            {new Date(filterDate).toLocaleDateString('es-MX', { 
-              weekday: 'long', 
-              day: 'numeric', 
-              month: 'long' 
-            })}
+            {(() => {
+              const [y, m, d] = filterDate.split('-').map(Number)
+              return new Date(y, m - 1, d).toLocaleDateString('es-MX', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long'
+              })
+            })()}
           </div>
           <Button variant="outline" size="icon" onClick={() => {
-            const d = new Date(filterDate); d.setDate(d.getDate() + 1)
-            setFilterDate(d.toISOString().split("T")[0])
+            const [y, m, day] = filterDate.split('-').map(Number)
+            const d = new Date(y, m - 1, day)
+            d.setDate(d.getDate() + 1)
+            setFilterDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)
           }}>
             <ChevronRight className="h-4 w-4" />
           </Button>
